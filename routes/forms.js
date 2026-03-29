@@ -1,0 +1,87 @@
+const express = require('express');
+const router = express.Router();
+const auth = require('../middleware/auth');
+const FormConfig = require('../models/FormConfig');
+const Lead = require('../models/Lead');
+const Update = require('../models/Update');
+
+// Get active form config (public)
+router.get('/config', async (req, res) => {
+  try {
+    let config = await FormConfig.findOne({ isActive: true });
+    if (!config) {
+      // Create default config
+      config = await FormConfig.create({
+        title: 'טופס פנייה - להקת קולות',
+        subtitle: 'נשמח לשמוע מכם!',
+        fields: [
+          { name: 'fullName', label: 'שם מלא', type: 'text', required: true, order: 1 },
+          { name: 'phone', label: 'טלפון', type: 'phone', required: true, order: 2 },
+          { name: 'email', label: 'אימייל', type: 'email', required: false, order: 3 },
+          { name: 'eventType', label: 'סוג אירוע', type: 'select', options: ['חתונה', 'בר מצווה', 'בת מצווה', 'אירוע', 'אחר'], required: true, order: 4 },
+          { name: 'eventDate', label: 'תאריך אירוע', type: 'date', required: false, order: 5 },
+          { name: 'location', label: 'מיקום אירוע', type: 'text', required: false, order: 6 },
+          { name: 'howHeardAboutUs', label: 'איך שמעתם עלינו?', type: 'select', options: ['אינסטגרם', 'יוטיוב', 'פייסבוק', 'המלצה', 'גוגל', 'אחר'], required: false, order: 7 },
+          { name: 'referredBy', label: 'מי המליץ?', type: 'text', required: false, order: 8 },
+          { name: 'message', label: 'הודעה', type: 'textarea', required: false, order: 9 },
+        ],
+      });
+    }
+    res.json(config);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Update form config (admin)
+router.put('/config', auth, async (req, res) => {
+  try {
+    let config = await FormConfig.findOne({ isActive: true });
+    if (config) {
+      Object.assign(config, req.body);
+      await config.save();
+    } else {
+      config = await FormConfig.create(req.body);
+    }
+    res.json(config);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Submit form (public)
+router.post('/submit', async (req, res) => {
+  try {
+    const { fullName, phone, email, eventType, eventDate, location, howHeardAboutUs, referredBy, message, relationship } = req.body;
+
+    const lead = await Lead.create({
+      title: `${eventType || 'פנייה'} - ${fullName}`,
+      eventType: eventType || 'אחר',
+      contacts: [{
+        fullName: fullName || '',
+        phone: phone || '',
+        email: email || '',
+        relationship: relationship || 'אחר',
+      }],
+      eventDate: eventDate || null,
+      location: location || '',
+      howHeardAboutUs: howHeardAboutUs || '',
+      referredBy: referredBy || '',
+      eventDetails: message || '',
+      source: 'form',
+      status: 'tracking',
+    });
+
+    await Update.create({
+      leadId: lead._id,
+      content: 'ליד חדש מטופס אינטרנטי',
+      type: 'system',
+    });
+
+    res.status(201).json({ message: 'הטופס נשלח בהצלחה! נחזור אליכם בהקדם.' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+module.exports = router;
