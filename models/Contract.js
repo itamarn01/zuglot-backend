@@ -27,6 +27,7 @@ const contractSchema = new mongoose.Schema({
   // Event details
   eventDate: { type: Date },
   eventLocation: { type: String, default: '' },
+  performanceDuration: { type: Number, default: 4.5 }, // hours
   
   // Products & pricing
   products: [contractProductSchema],

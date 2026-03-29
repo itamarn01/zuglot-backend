@@ -65,6 +65,24 @@ router.get('/public/:linkToken', async (req, res) => {
   }
 });
 
+// Update contract details from public link (before signing only)
+router.patch('/public/:linkToken/update-details', async (req, res) => {
+  try {
+    const contract = await Contract.findOne({ linkToken: req.params.linkToken });
+    if (!contract) return res.status(404).json({ message: 'חוזה לא נמצא' });
+    if (contract.status === 'signed') return res.status(403).json({ message: 'לא ניתן לערוך חוזה חתום' });
+
+    const allowed = ['eventDate','eventLocation','performanceDuration','ordererName','ordererIdNumber','ordererAddress','ordererPhone','groomName','brideName'];
+    allowed.forEach(field => {
+      if (req.body[field] !== undefined) contract[field] = req.body[field];
+    });
+    await contract.save();
+    res.json({ message: 'פרטים עודכנו בהצלחה' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
 // Create contract
 router.post('/', auth, async (req, res) => {
   try {
