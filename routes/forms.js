@@ -84,4 +84,39 @@ router.post('/submit', async (req, res) => {
   }
 });
 
+// ── Band Signatures (admin) ──
+
+// Add a signature
+router.post('/config/band-signatures', auth, async (req, res) => {
+  try {
+    const config = await FormConfig.findOne({ isActive: true });
+    if (!config) return res.status(404).json({ message: 'config not found' });
+    config.bandSignatures.push(req.body);
+    await config.save();
+    res.json(config.bandSignatures);
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+
+// Update a signature
+router.put('/config/band-signatures/:sigId', auth, async (req, res) => {
+  try {
+    const config = await FormConfig.findOne({ isActive: true });
+    const sig = config.bandSignatures.id(req.params.sigId);
+    if (!sig) return res.status(404).json({ message: 'signature not found' });
+    Object.assign(sig, req.body);
+    await config.save();
+    res.json(config.bandSignatures);
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+
+// Delete a signature
+router.delete('/config/band-signatures/:sigId', auth, async (req, res) => {
+  try {
+    const config = await FormConfig.findOne({ isActive: true });
+    config.bandSignatures.pull({ _id: req.params.sigId });
+    await config.save();
+    res.json(config.bandSignatures);
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+
 module.exports = router;

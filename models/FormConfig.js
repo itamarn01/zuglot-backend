@@ -23,6 +23,12 @@ const formConfigSchema = new mongoose.Schema({
   fields: [formFieldSchema],
   isActive: { type: Boolean, default: true },
   thankYouMessage: { type: String, default: 'תודה! נחזור אליכם בהקדם.' },
+  bandSignatures: [{
+    _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+    name: { type: String, required: true },
+    role: { type: String, default: '' },
+    signatureUrl: { type: String, required: true },
+  }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('FormConfig', formConfigSchema);
