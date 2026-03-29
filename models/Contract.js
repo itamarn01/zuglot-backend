@@ -44,6 +44,8 @@ const contractSchema = new mongoose.Schema({
   signatureUrl: { type: String, default: '' },
   signedAt: { type: Date },
   signerName: { type: String, default: '' },
+  // Band signatures chosen for this contract
+  bandSignatures: [{ name: String, role: String, signatureUrl: String }],
   
   // PDF after signing
   pdfUrl: { type: String, default: '' },
