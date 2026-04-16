@@ -32,7 +32,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Get contract by public link (no auth) - disabled after signing
+// Get contract by public link (no auth)
 router.get('/public/:linkToken', async (req, res) => {
   try {
     const FormConfig = require('../models/FormConfig');
@@ -42,12 +42,12 @@ router.get('/public/:linkToken', async (req, res) => {
     
     if (!contract) return res.status(404).json({ message: 'חוזה לא נמצא' });
     
-    // If already signed, deny access (linkActive===false means explicitly disabled)
-    if (contract.status === 'signed' || contract.linkActive === false) {
-      return res.status(403).json({ message: 'חוזה זה כבר נחתם ואינו זמין לצפייה' });
+    // If explicitly disabled (not just signed), deny access
+    if (contract.linkActive === false && contract.status !== 'signed') {
+      return res.status(403).json({ message: 'חוזה זה אינו זמין' });
     }
     
-    // Update status to viewed
+    // Update status to viewed (if still unsigned)
     if (contract.status === 'sent') {
       contract.status = 'viewed';
       await contract.save();
@@ -154,11 +154,15 @@ router.post('/public/:linkToken/sign', async (req, res) => {
         ...p.toObject(),
         isSelected: !p.isOptional || selectedIds.includes(p.product?.toString() || p.name),
       }));
-      // Recalculate totalPrice
       const optionalTotal = contract.products
         .filter(p => p.isOptional && p.isSelected)
         .reduce((sum, p) => sum + (p.price || 0), 0);
       contract.totalPrice = (contract.basePrice || contract.totalPrice) + optionalTotal - (contract.discount || 0);
+    }
+
+    // Save PDF data URL if provided by client
+    if (req.body.pdfDataUrl) {
+      contract.pdfUrl = req.body.pdfDataUrl;
     }
     
     await contract.save();
@@ -211,6 +215,56 @@ router.delete('/:id', auth, async (req, res) => {
     res.json({ message: 'חוזה נמחק' });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// Save PDF data URL for a signed contract (public - called by client after generating PDF)
+router.post('/public/:linkToken/save-pdf', async (req, res) => {
+  try {
+    const contract = await Contract.findOne({ linkToken: req.params.linkToken });
+    if (!contract) return res.status(404).json({ message: 'חוזה לא נמצא' });
+    contract.pdfUrl = req.body.pdfDataUrl;
+    await contract.save();
+    res.json({ message: 'PDF נשמר' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Add optional products to a signed contract (from client side post-signing)
+router.post('/public/:linkToken/add-extras', async (req, res) => {
+  try {
+    const contract = await Contract.findOne({ linkToken: req.params.linkToken });
+    if (!contract) return res.status(404).json({ message: 'חוזה לא נמצא' });
+    // Only signed contracts can add extras
+    if (contract.status !== 'signed') return res.status(400).json({ message: 'החוזה לא חתום' });
+
+    const { selectedOptionalProducts } = req.body;
+    if (selectedOptionalProducts) {
+      contract.products = contract.products.map(p => ({
+        ...p.toObject(),
+        isSelected: !p.isOptional ? p.isSelected : selectedOptionalProducts.includes(p.product?.toString() || p.name),
+      }));
+      const optionalTotal = contract.products
+        .filter(p => p.isOptional && p.isSelected)
+        .reduce((sum, p) => sum + (p.price || 0), 0);
+      contract.totalPrice = (contract.basePrice || 0) - (contract.discount || 0) + optionalTotal;
+    }
+
+    await contract.save();
+
+    // Log the change
+    if (contract.leadId) {
+      await Update.create({
+        leadId: contract.leadId,
+        content: 'לקוח הוסיף תוספות לאחר חתימה',
+        type: 'system',
+      });
+    }
+
+    res.json({ message: 'תוספות עודכנו', contract });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 });
 
