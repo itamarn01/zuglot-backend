@@ -23,6 +23,7 @@ const formConfigSchema = new mongoose.Schema({
   fields: [formFieldSchema],
   isActive: { type: Boolean, default: true },
   thankYouMessage: { type: String, default: 'תודה! נחזור אליכם בהקדם.' },
+  webhookUrl: { type: String, default: '' }, // WordPress / external webhook
   bandSignatures: [{
     _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
     name: { type: String, required: true },

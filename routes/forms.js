@@ -78,6 +78,35 @@ router.post('/submit', async (req, res) => {
       type: 'system',
     });
 
+    // Fire WordPress webhook if configured
+    try {
+      const config = await FormConfig.findOne({ isActive: true });
+      if (config && config.webhookUrl) {
+        const webhookPayload = {
+          event: 'new_lead',
+          lead_id: lead._id.toString(),
+          full_name: fullName || '',
+          phone: phone || '',
+          email: email || '',
+          event_type: eventType || '',
+          event_date: eventDate || '',
+          location: location || '',
+          how_heard: howHeardAboutUs || '',
+          referred_by: referredBy || '',
+          message: message || '',
+          submitted_at: new Date().toISOString(),
+        };
+
+        fetch(config.webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(webhookPayload),
+        }).catch(err => console.error('Webhook error:', err.message));
+      }
+    } catch (whErr) {
+      console.error('Webhook config error:', whErr.message);
+    }
+
     res.status(201).json({ message: 'הטופס נשלח בהצלחה! נחזור אליכם בהקדם.' });
   } catch (error) {
     res.status(400).json({ message: error.message });
