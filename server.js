@@ -82,12 +82,12 @@ cron.schedule('*/5 * * * *', async () => {
 
 // Self-ping to prevent cold starts (every 14 minutes)
 // In production, ping the actual Render URL; locally, use localhost
-setInterval(() => {
+/* setInterval(() => {
   const host = process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL
     ? process.env.RENDER_EXTERNAL_URL
     : `http://localhost:${process.env.PORT || 5000}`;
   fetch(`${host}/api/health`).catch(() => {});
-}, 14 * 60 * 1000);
+}, 14 * 60 * 1000); */
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
